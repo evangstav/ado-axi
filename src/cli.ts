@@ -37,9 +37,14 @@ const COMMANDS: Record<string, CommandFn> = {
   setup: (args) => setupCommand(stripRepoFlag(args).strippedArgs),
 };
 
-export async function main(argv?: string[]): Promise<void> {
+export async function main(
+  argv?: string[],
+  stdout?: { write: (chunk: string) => unknown },
+): Promise<void> {
+  const normalizedArgv = normalizeLeadingRepoFlag(argv ?? process.argv.slice(2));
   await runAxiCli<AdoContext | undefined>({
-    ...(argv ? { argv } : {}),
+    argv: normalizedArgv,
+    stdout,
     description: DESCRIPTION,
     version: VERSION,
     topLevelHelp: TOP_HELP,
@@ -50,6 +55,27 @@ export async function main(argv?: string[]): Promise<void> {
     resolveContext: ({ args }) =>
       resolveContext(stripRepoFlag(args).repoFlag),
   });
+}
+
+function normalizeLeadingRepoFlag(args: string[]): string[] {
+  if (args.length < 2) return args;
+
+  let repoFlag: string | undefined;
+  let rest: string[] | undefined;
+  const first = args[0];
+  if ((first === "-R" || first === "--repo") && args[1]) {
+    repoFlag = args[1];
+    rest = args.slice(2);
+  } else if (first.startsWith("-R=")) {
+    repoFlag = first.slice(3);
+    rest = args.slice(1);
+  } else if (first.startsWith("--repo=")) {
+    repoFlag = first.slice("--repo=".length);
+    rest = args.slice(1);
+  }
+
+  if (!repoFlag || !rest?.length) return args;
+  return [rest[0], ...rest.slice(1), "--repo", repoFlag];
 }
 
 function withContext(_command: string, handler: CommandFn): CommandFn {

@@ -21,8 +21,9 @@
 | Run locally | `npm run dev -- pr list` |
 | Build distributable JS and declarations | `npm run build` |
 | Type-check without emitting files | `npm run typecheck` |
+| Run regression tests | `npm test` |
 
-There is currently no `npm test` script. Add one when introducing a test framework.
+`npm test` builds first, then runs the Node-based CLI regression suite.
 
 ## Coding Style & Naming Conventions
 
@@ -30,11 +31,11 @@ Use TypeScript ES modules targeting Node 20+. Keep `strict` TypeScript clean, pr
 
 ## Testing Guidelines
 
-No test framework is configured yet. For new behavior, add focused tests near the relevant module or under a future `tests/` directory with names like `pr.test.ts` or `context.test.ts`. Cover argument parsing, Azure DevOps command construction, context resolution, and error rendering before changing CLI behavior.
+Tests live under `test/` and use Node's built-in `node:test` runner. Add focused CLI or module tests with names like `cli.test.js`, `pr.test.js`, or `context.test.js`. Cover argument parsing, Azure DevOps command construction, context resolution, and error rendering before changing CLI behavior.
 
 ## Commit & Pull Request Guidelines
 
-This repository currently has no commit history, so no historical commit convention exists. Until one is established, use concise intent-first commit messages and include verification in the body when useful.
+The current history is too short to establish a durable local convention. Until one emerges, use concise intent-first commit messages and include verification in the body when useful.
 
 Pull requests should include the user-facing CLI change, validation commands run, linked issue or context, and sample output when command behavior changes. Never include PATs or credential-helper output in PR text, logs, or fixtures.
 

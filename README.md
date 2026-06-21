@@ -52,7 +52,7 @@ ado-axi pr list   [--status active|completed|abandoned|all] [--top n]
 ado-axi pr show    <id>
 ado-axi pr create  [-s/--source branch] [-t/--target branch] [--title t]
                    [--description d] [--draft] [--auto-complete] [--squash]
-ado-axi pr complete <id> [--squash | --merge | --rebase] [--keep-source-branch]
+ado-axi pr complete <id> [--squash | --merge] [--keep-source-branch]
 ado-axi pr checks  <id>
 ado-axi setup hooks
 ```
@@ -64,7 +64,7 @@ ado-axi setup hooks
 | `pr create` | `az repos pr create --source-branch … --target-branch … --title …` |
 | `pr show <id>` | `az repos pr show --id <id>` |
 | `pr list` | `az repos pr list` |
-| `pr complete <id>` | `az repos pr update --id <id> --status completed --merge-strategy …` |
+| `pr complete <id>` | `az repos pr update --id <id> --status completed --squash true|false` |
 | `pr checks <id>` | `az repos pr policy list --id <id>` → `passing` / `pending` / `failing` verdict |
 
 `pr checks` summarizes ADO **policy evaluations** (the ADO analogue of GitHub checks) into a
@@ -82,6 +82,8 @@ ado-axi pr complete 4242 --squash
 
 # from anywhere, naming the repo explicitly
 ado-axi -R Ipto/IptoAIasset/asset-mgmt-assistant-backend pr list
+# equivalent when flags are placed after the command:
+ado-axi pr list -R Ipto/IptoAIasset/asset-mgmt-assistant-backend
 ```
 
 ## Status

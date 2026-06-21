@@ -23,6 +23,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx bin/ado-axi.ts",
+    "prepack": "npm run build",
+    "test": "npm run build && node test/cli.test.js",
     "typecheck": "tsc --noEmit"
   },
   "license": "MIT",

@@ -15,7 +15,7 @@ flags{list}:
   --status <active|completed|abandoned|all> (default active), --top <n> (default 30),
   --creator <id>, --source <branch>, --target <branch>
 flags{complete}:
-  --squash (default), --merge | --rebase, --keep-source-branch
+  --squash (default), --merge, --keep-source-branch
 examples:
   ado-axi pr create --title "Add readiness gate" --auto-complete
   ado-axi pr show 4242
@@ -150,13 +150,21 @@ async function completePr(args: string[], ctx: AdoContext): Promise<string> {
     "--id", String(id),
     "--status", "completed",
   ];
-  // Merge strategy: squash by default; --merge or --rebase override.
-  const strategy = hasFlag(args, "--merge")
-    ? "noFastForward"
-    : hasFlag(args, "--rebase")
-      ? "rebase"
-      : "squash";
-  azArgs.push("--merge-strategy", strategy);
+  const wantsMerge = hasFlag(args, "--merge");
+  const wantsSquash = hasFlag(args, "--squash");
+  if (hasFlag(args, "--rebase")) {
+    throw new AxiError(
+      "az repos pr update does not support --rebase; use --merge or --squash",
+      "VALIDATION_ERROR",
+    );
+  }
+  if (wantsMerge && wantsSquash) {
+    throw new AxiError(
+      "Choose only one completion strategy: --merge or --squash",
+      "VALIDATION_ERROR",
+    );
+  }
+  azArgs.push("--squash", wantsMerge ? "false" : "true");
   if (!hasFlag(args, "--keep-source-branch")) {
     azArgs.push("--delete-source-branch", "true");
   }

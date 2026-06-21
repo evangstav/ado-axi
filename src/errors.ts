@@ -59,10 +59,28 @@ const patterns: ErrorPattern[] = [
 
 function firstErrorLine(stderr: string): string {
   return (
-    stderr
+    redactSensitive(stderr)
       .trim()
       .split("\n")
       .find((l) => l.trim().length > 0) ?? ""
+  );
+}
+
+function errorExcerpt(stderr: string): string {
+  const excerpt = redactSensitive(stderr)
+    .trim()
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 4)
+    .join("\n");
+  return excerpt.length > 500 ? `${excerpt.slice(0, 500)}...` : excerpt;
+}
+
+function redactSensitive(value: string): string {
+  return value.replace(
+    /\b(password|token|pat|AZURE_DEVOPS_EXT_PAT)=\S+/gi,
+    "$1=[redacted]",
   );
 }
 
@@ -81,7 +99,7 @@ export function mapAzError(stderr: string, exitCode: number): AxiError {
     return new AxiError(firstErrorLine(stderr), "NOT_FOUND");
   }
   return new AxiError(
-    firstErrorLine(stderr) || `az exited with code ${exitCode}`,
+    errorExcerpt(stderr) || `az exited with code ${exitCode}`,
     "UNKNOWN",
   );
 }
