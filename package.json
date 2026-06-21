@@ -1,0 +1,41 @@
+{
+  "name": "ado-axi",
+  "version": "0.1.0",
+  "description": "AXI-compliant Azure DevOps CLI wrapper — token-efficient TOON output over `az repos`, with PAT+org auto-resolution. The ADO equivalent of gh-axi.",
+  "type": "module",
+  "keywords": [
+    "azure-devops",
+    "ado",
+    "cli",
+    "agent",
+    "axi",
+    "toon",
+    "az"
+  ],
+  "bin": {
+    "ado-axi": "./dist/bin/ado-axi.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx bin/ado-axi.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@toon-format/toon": "^2.1.0",
+    "axi-sdk-js": "^0.1.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0"
+  }
+}
