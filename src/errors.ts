@@ -34,7 +34,20 @@ const patterns: ErrorPattern[] = [
     message: (m) => `Pull request ${m[1]} does not exist`,
   },
   {
-    pattern: /TF400813|not authorized|Unauthorized|401/i,
+    // TF401232: "Work item N does not exist, or you do not have permissions…".
+    // Keep this ahead of the auth pattern so the `401` in TFxxx is not misread.
+    pattern: /(?:TF401232:?\s*)?work item\s+(\d+)\s+does not exist/i,
+    code: "NOT_FOUND",
+    message: (m) =>
+      m[1]
+        ? `Work item ${m[1]} does not exist or you lack permission to read it`
+        : "Work item does not exist or you lack permission to read it",
+  },
+  {
+    // `401` is word-bounded so it matches an HTTP 401 but NOT codes like
+    // TF401398/TF401232 that merely contain the digits "401".
+    pattern:
+      /TF400813|not authorized|Unauthorized|requires user authentication|\b401\b/i,
     code: "AUTH_REQUIRED",
     message: () =>
       "Azure DevOps auth failed — PAT missing, expired, or wrong scope",

@@ -1,7 +1,7 @@
 {
   "name": "ado-axi",
   "version": "0.1.0",
-  "description": "AXI-compliant Azure DevOps CLI wrapper — token-efficient TOON output over `az repos`, with PAT+org auto-resolution. The ADO equivalent of gh-axi.",
+  "description": "AXI-compliant Azure DevOps CLI wrapper — token-efficient TOON output over `az repos` and `az boards` (pull requests, reviewers, and work items), with PAT+org auto-resolution. The ADO equivalent of gh-axi.",
   "type": "module",
   "keywords": [
     "azure-devops",
@@ -24,7 +24,8 @@
     "build": "tsc",
     "dev": "tsx bin/ado-axi.ts",
     "prepack": "npm run build",
-    "test": "npm run build && node test/cli.test.js",
+    "prepare": "npm run build",
+    "test": "npm run build && node --test test/*.test.js",
     "typecheck": "tsc --noEmit"
   },
   "license": "MIT",

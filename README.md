@@ -1,10 +1,10 @@
 # ado-axi
 
 An [AXI](https://github.com/kunchenguid/axi)-compliant Azure DevOps CLI wrapper — the ADO
-equivalent of [`gh-axi`](https://github.com/kunchenguid/gh-axi). It wraps `az repos` with
-token-efficient [TOON](https://github.com/toon-format/toon) output, contextual next-step
-suggestions, and structured errors, so agents can drive Azure DevOps pull requests the way
-`gh-axi` drives GitHub.
+equivalent of [`gh-axi`](https://github.com/kunchenguid/gh-axi). It wraps `az repos` and
+`az boards` with token-efficient [TOON](https://github.com/toon-format/toon) output, contextual
+next-step suggestions, and structured errors, so agents can drive Azure DevOps pull requests and
+work items the way `gh-axi` drives GitHub.
 
 It also folds in the `azp` shim's auth model: organization, project, and repository are
 auto-detected from the `dev.azure.com` git origin, and the PAT is read from the git
@@ -14,22 +14,32 @@ token in argv or env files.
 ## Why
 
 `gh-axi`'s pipeline assumes GitHub + `gh`. Repositories hosted on Azure DevOps have no PRs
-through that path. `ado-axi` provides the same agent-ergonomic surface over `az repos`, so
-tooling built on the AXI conventions (e.g. multi-agent orchestrators) can ship to ADO repos.
+through that path. `ado-axi` provides the same agent-ergonomic surface over `az repos` and
+`az boards`, so tooling built on the AXI conventions (e.g. multi-agent orchestrators) can ship
+to ADO repos.
 
 ## Requirements
 
 - Node 20+
 - [`az` CLI](https://learn.microsoft.com/cli/azure) with the **azure-devops** extension
   (`az extension add --name azure-devops`)
-- A PAT with **Code** and **Pull Request** scopes, stored in the git credential helper for
-  your org URL (`https://dev.azure.com/<org>`). This is the same credential `azp` reads.
+- A PAT with **Code** and **Pull Request** scopes (add **Work Items** for the `work-item`
+  commands), stored in the git credential helper for your org URL
+  (`https://dev.azure.com/<org>`). This is the same credential `azp` reads.
 
 ## Install
 
+`ado-axi` is not published to npm. Install it from GitHub, or clone and build:
+
 ```sh
+# straight from GitHub
+npm install -g github:evangstav/ado-axi
+
+# or from a clone
+git clone https://github.com/evangstav/ado-axi.git
+cd ado-axi
 npm install && npm run build
-# optionally: npm link   (exposes `ado-axi` on PATH)
+npm link   # optional: exposes `ado-axi` on PATH
 ```
 
 ## Context resolution
@@ -54,6 +64,20 @@ ado-axi pr create  [-s/--source branch] [-t/--target branch] [--title t]
                    [--description d] [--draft] [--auto-complete] [--squash]
 ado-axi pr complete <id> [--squash | --merge] [--keep-source-branch]
 ado-axi pr checks  <id>
+ado-axi pr reviewer add  <id> --reviewer <email|name|guid> [--required]
+ado-axi pr reviewer list <id>
+
+ado-axi work-item create  --type <Task|Bug|Issue|Epic|…> --title <t> [--description d]
+                          [--assignee who] [--parent id] [--priority n]
+                          [--area a] [--iteration i]
+ado-axi work-item update  <id> [--title t] [--description d] [--assignee who] [--state s]
+                          [--priority n] [--parent id] [--add-relation <type:id>]
+ado-axi work-item show    <id>
+ado-axi work-item delete  <id> [--destroy]
+ado-axi work-item list    [--assignee who] [--state s] [--type t] [--unassigned]
+                          [--query "<raw WIQL>"]
+# `wi` is an alias for `work-item`.
+
 ado-axi setup hooks
 ```
 
@@ -66,10 +90,30 @@ ado-axi setup hooks
 | `pr list` | `az repos pr list` |
 | `pr complete <id>` | `az repos pr update --id <id> --status completed --squash true|false` |
 | `pr checks <id>` | `az repos pr policy list --id <id>` → `passing` / `pending` / `failing` verdict |
+| `pr reviewer add <id>` | `az repos pr reviewer add --id <id> --reviewers <id> [--required true]` |
+| `pr reviewer list <id>` | `az repos pr reviewer list --id <id>` |
+| `work-item create` | `az boards work-item create --type … --title … --project <project>` |
+| `work-item update <id>` | `az boards work-item update --id <id> …` (+ `relation add` for `--parent`/`--add-relation`) |
+| `work-item show <id>` | `az boards work-item show --id <id>` |
+| `work-item delete <id>` | `az boards work-item delete --id <id> --project <project> --yes [--destroy]` |
+| `work-item list` | `az boards query --wiql "<built from flags>" --project <project>` |
 
 `pr checks` summarizes ADO **policy evaluations** (the ADO analogue of GitHub checks) into a
 single verdict plus a per-policy breakdown — what a merge-poll waits on. `--auto-complete`
 on `pr create` sets the PR to complete automatically once all policies pass.
+
+**Reviewer identity resolution.** `pr reviewer add` accepts an email, display name, or GUID.
+The direct value is tried first; if the ADO identity endpoint rejects a Code-scoped PAT
+(`requires user authentication`), the reviewer's GUID is recovered from recent PR history in
+the project (`createdBy`/`reviewers` whose `displayName`/`uniqueName`/`mailAddress` matches)
+and the add is retried — so adding a reviewer by email works even without the Identity scope.
+
+**Work-item descriptions.** `--description` takes plain text or Markdown (headings, lists,
+inline code, bold/italic) and is rendered to the HTML the ADO Description field expects;
+callers never hand-write HTML.
+
+**Work-item list / WIQL.** The `--assignee`/`--state`/`--type`/`--unassigned` flags build a
+project-scoped WIQL query; `--query` is a raw-WIQL escape hatch (still scoped to the project).
 
 ## Examples
 
@@ -79,6 +123,13 @@ ado-axi pr list
 ado-axi pr create --title "Add readiness gate" --auto-complete
 ado-axi pr checks 4242
 ado-axi pr complete 4242 --squash
+ado-axi pr reviewer add 4242 --reviewer dev@org.com --required
+
+# work items (Boards); `wi` is an alias for `work-item`
+ado-axi wi create --type Task --title "Wire up gate" --assignee me@org.com
+ado-axi wi update 1234 --state Active --priority 2
+ado-axi wi list --state Active --type Task
+ado-axi wi list --unassigned
 
 # from anywhere, naming the repo explicitly
 ado-axi -R Ipto/IptoAIasset/asset-mgmt-assistant-backend pr list
@@ -88,9 +139,10 @@ ado-axi pr list -R Ipto/IptoAIasset/asset-mgmt-assistant-backend
 
 ## Status
 
-MVP: the `pr` surface (`create`/`show`/`list`/`complete`/`checks`) plus `setup`. Planned:
-`repo`, `pipeline` (`az pipelines`), and `work-item` (`az boards`) commands, and a richer
-TOON projection. Built on `axi-sdk-js`; a candidate for the AXI catalog.
+The `pr` surface (`create`/`show`/`list`/`complete`/`checks`/`reviewer`), the `work-item`
+surface (`create`/`update`/`show`/`delete`/`list`, alias `wi`, over `az boards`), and `setup`.
+Planned: `repo`, `pipeline` (`az pipelines`), and a richer TOON projection. Built on
+`axi-sdk-js`; a candidate for the AXI catalog.
 
 ## License
 

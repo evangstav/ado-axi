@@ -4,10 +4,15 @@ import { azJson } from "../az.js";
 import { AxiError } from "../errors.js";
 import { getFlag, hasFlag, getPositional } from "../args.js";
 import { renderOutput, renderData, renderHelp, renderCount } from "../render.js";
+import {
+  looksLikeGuid,
+  isIdentityAuthError,
+  resolveIdentityFromPrHistory,
+} from "../identity.js";
 
 export const PR_HELP = `usage: ado-axi pr <subcommand> [flags]
-subcommands[6]:
-  create, show <id>, list, complete <id>, abandon <id>, checks <id>
+subcommands[7]:
+  create, show <id>, list, complete <id>, abandon <id>, checks <id>, reviewer
 flags{create}:
   -s/--source <branch> (default: current branch), -t/--target <branch> (default: main),
   --title <t>, --description <d>, --draft, --auto-complete, --squash
@@ -16,12 +21,16 @@ flags{list}:
   --creator <id>, --source <branch>, --target <branch>
 flags{complete}:
   --squash (default), --merge, --keep-source-branch
+flags{reviewer}:
+  reviewer add <id> --reviewer <email|name|guid> [--required]
+  reviewer list <id>
 examples:
   ado-axi pr create --title "Add readiness gate" --auto-complete
   ado-axi pr show 4242
   ado-axi pr list --status active
   ado-axi pr checks 4242
-  ado-axi pr complete 4242 --squash`;
+  ado-axi pr complete 4242 --squash
+  ado-axi pr reviewer add 4242 --reviewer dev@org.com --required`;
 
 /** TOON-shaped projection of a PR (a few fields, not the full az blob). */
 function prSummary(
@@ -232,8 +241,139 @@ async function checksPr(args: string[], ctx: AdoContext): Promise<string> {
   ]);
 }
 
-function requirePrId(args: string[]): number {
-  const raw = getPositional(args, 1);
+/**
+ * Reviewer management. `add` accepts an email, display name, or GUID and resolves
+ * it robustly: the direct value is tried first (it is what callers have), and when
+ * the identity-lookup endpoint rejects a Code-scoped PAT, the person's GUID is
+ * recovered from recent PR history and the add is retried — the single biggest
+ * ergonomic win over raw `az`.
+ */
+async function reviewerCommand(args: string[], ctx: AdoContext): Promise<string> {
+  const action = args[1];
+  if (action === "add") return addReviewer(args, ctx);
+  if (action === "list") return listReviewers(args, ctx);
+  throw new AxiError(
+    `Unknown reviewer action: ${action ?? "(none)"}`,
+    "VALIDATION_ERROR",
+    ["Available: add, list"],
+  );
+}
+
+async function addReviewer(args: string[], ctx: AdoContext): Promise<string> {
+  const id = requirePrId(args, 2);
+  const reviewer = getFlag(args, "--reviewer");
+  if (!reviewer) {
+    throw new AxiError(
+      "--reviewer is required (email, display name, or GUID)",
+      "VALIDATION_ERROR",
+    );
+  }
+  const required = hasFlag(args, "--required");
+
+  const runAdd = (who: string) => {
+    const azArgs = [
+      "repos", "pr", "reviewer", "add",
+      "--id", String(id),
+      "--reviewers", who,
+    ];
+    if (required) azArgs.push("--required", "true");
+    return azJson<unknown>(azArgs, ctx);
+  };
+
+  let resolved = reviewer;
+  let raw: unknown;
+  try {
+    raw = await runAdd(reviewer);
+  } catch (err) {
+    // A GUID needs no lookup; non-identity errors (bad PR id, etc.) are real.
+    if (looksLikeGuid(reviewer) || !isIdentityAuthError(err)) throw err;
+    const guids = await resolveIdentityFromPrHistory(reviewer, ctx);
+    if (guids.length === 0) {
+      throw new AxiError(
+        `Could not resolve reviewer "${reviewer}" — the identity endpoint is unauthorized and no recent pull request in ${ctx.project} matches by name or email`,
+        "VALIDATION_ERROR",
+        [
+          "Pass the reviewer's identity GUID directly",
+          "Or pick someone who appears in `ado-axi pr list --status all`",
+        ],
+      );
+    }
+    if (guids.length > 1) {
+      throw new AxiError(
+        `Ambiguous reviewer "${reviewer}" — matched ${guids.length} distinct identities in PR history`,
+        "VALIDATION_ERROR",
+        [
+          `Pass the exact GUID: ${guids.join(", ")}`,
+          "Or use the person's unique email instead of a display name",
+        ],
+      );
+    }
+    resolved = guids[0];
+    raw = await runAdd(resolved);
+  }
+
+  const rows = reviewerRows(raw);
+  return renderOutput([
+    renderCount("reviewers", rows.length),
+    renderData("reviewers", rows),
+    renderHelp([
+      resolved === reviewer
+        ? `Added ${reviewer} to PR ${id}`
+        : `Resolved "${reviewer}" → ${resolved} via PR history, added to PR ${id}`,
+    ]),
+  ]);
+}
+
+async function listReviewers(args: string[], ctx: AdoContext): Promise<string> {
+  const id = requirePrId(args, 2);
+  const raw = await azJson<unknown>(
+    ["repos", "pr", "reviewer", "list", "--id", String(id)],
+    ctx,
+  );
+  const rows = reviewerRows(raw);
+  return renderOutput([
+    renderCount("reviewers", rows.length),
+    renderData("reviewers", rows),
+    renderHelp(
+      rows.length
+        ? []
+        : [`Add one: ado-axi pr reviewer add ${id} --reviewer <who>`],
+    ),
+  ]);
+}
+
+/** Project the az reviewer blob(s) into a TOON table. */
+function reviewerRows(raw: unknown): Record<string, unknown>[] {
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return list.map((r) => {
+    const o = r as Record<string, unknown>;
+    return {
+      name: o["displayName"] ?? o["uniqueName"],
+      id: o["id"],
+      required: o["isRequired"] ?? false,
+      vote: voteLabel(o["vote"]),
+    };
+  });
+}
+
+/** ADO encodes reviewer votes as small integers. */
+function voteLabel(vote: unknown): string {
+  switch (vote) {
+    case 10:
+      return "approved";
+    case 5:
+      return "approved-with-suggestions";
+    case -5:
+      return "waiting";
+    case -10:
+      return "rejected";
+    default:
+      return "none";
+  }
+}
+
+function requirePrId(args: string[], start = 1): number {
+  const raw = getPositional(args, start);
   if (!raw || !/^\d+$/.test(raw)) {
     throw new AxiError(
       "A pull request id is required, e.g. ado-axi pr show 4242",
@@ -268,9 +408,11 @@ export async function prCommand(
       return abandonPr(args, ctx);
     case "checks":
       return checksPr(args, ctx);
+    case "reviewer":
+      return reviewerCommand(args, ctx);
     default:
       throw new AxiError(`Unknown subcommand: ${sub}`, "VALIDATION_ERROR", [
-        "Available: create, show, list, complete, abandon, checks",
+        "Available: create, show, list, complete, abandon, checks, reviewer",
       ]);
   }
 }

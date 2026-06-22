@@ -2,14 +2,15 @@
 
 ## Project Structure & Module Organization
 
-`ado-axi` is a small TypeScript CLI for Azure DevOps PR workflows.
+`ado-axi` is a small TypeScript CLI for Azure DevOps PR and Boards (work item) workflows.
 
 | Path | Purpose |
 | --- | --- |
 | `bin/ado-axi.ts` | executable entry point used by `npm run dev` |
 | `src/cli.ts` | top-level command routing and help text |
-| `src/commands/` | command implementations such as `pr` and `setup` |
+| `src/commands/` | command implementations such as `pr`, `work-item`, and `setup` |
 | `src/args.ts`, `src/context.ts`, `src/az.ts` | argument parsing, repo/auth context, and `az` integration |
+| `src/identity.ts`, `src/markdown.ts` | reviewer GUID resolution and Markdown→HTML for descriptions |
 | `src/render.ts`, `src/errors.ts` | TOON rendering and structured error handling |
 | `dist/` | generated build output; do not edit by hand |
 
@@ -23,7 +24,7 @@
 | Type-check without emitting files | `npm run typecheck` |
 | Run regression tests | `npm test` |
 
-`npm test` builds first, then runs the Node-based CLI regression suite.
+`npm test` builds first, then runs every `test/*.test.js` file through Node's built-in test runner.
 
 ## Coding Style & Naming Conventions
 
@@ -38,6 +39,28 @@ Tests live under `test/` and use Node's built-in `node:test` runner. Add focused
 The current history is too short to establish a durable local convention. Until one emerges, use concise intent-first commit messages and include verification in the body when useful.
 
 Pull requests should include the user-facing CLI change, validation commands run, linked issue or context, and sample output when command behavior changes. Never include PATs or credential-helper output in PR text, logs, or fixtures.
+
+## Azure DevOps Domain Notes
+
+These are non-obvious `az` behaviors the wrappers rely on; preserve them when editing.
+
+- **Reviewer-by-email needs an identity fallback.** `az repos pr reviewer add` resolves a
+  reviewer through `vssps.dev.azure.com/.../_apis/Identities`, which a **Code-scoped PAT**
+  cannot reach — it fails with `requires user authentication` (TF400813). `src/identity.ts`
+  recovers the reviewer's GUID from recent PR history (`createdBy`/`reviewers` matched by
+  `displayName`/`uniqueName`/`mailAddress`) and retries with the GUID. Work-item assignment
+  (`--assigned-to`) accepts an email directly and needs no fallback.
+- **`az boards work-item delete` requires `--project`** (unlike most board commands that
+  infer it). `work-item.ts` always passes the resolved project and `--yes`.
+- **`--priority` / `--parent` are not native create/update flags.** Priority is set via
+  `--fields Microsoft.VSTS.Common.Priority=<n>`; parent/relations are a separate
+  `az boards work-item relation add --relation-type <type> --target-id <id>` call.
+- **`work-item list` builds WIQL** from the flag filters and runs `az boards query --wiql`,
+  always scoped to `[System.TeamProject]`. Unassigned is `[System.AssignedTo] = ''`.
+- **Descriptions render to HTML.** `src/markdown.ts` converts plain text / Markdown to the
+  HTML the ADO Description field expects; callers never pass raw HTML.
+- **Not published to npm.** Install from GitHub (`npm install -g github:evangstav/ado-axi`,
+  which runs the `prepare` build) or clone + `npm install && npm run build`.
 
 ## Security & Configuration Tips
 
