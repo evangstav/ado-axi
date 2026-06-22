@@ -7,11 +7,21 @@
     "azure-devops",
     "ado",
     "cli",
-    "agent",
     "axi",
+    "pull-request",
+    "work-items",
     "toon",
+    "agent",
     "az"
   ],
+  "homepage": "https://github.com/evangstav/ado-axi#readme",
+  "bugs": {
+    "url": "https://github.com/evangstav/ado-axi/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/evangstav/ado-axi.git"
+  },
   "bin": {
     "ado-axi": "./dist/bin/ado-axi.js"
   },
@@ -20,6 +30,9 @@
     "LICENSE",
     "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx bin/ado-axi.ts",
