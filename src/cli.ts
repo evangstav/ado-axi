@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { runAxiCli } from "axi-sdk-js";
 import { resolveContext, type AdoContext } from "./context.js";
 import { prCommand, PR_HELP } from "./commands/pr.js";
+import { workItemCommand, WI_HELP } from "./commands/work-item.js";
 import { setupCommand, SETUP_HELP } from "./commands/setup.js";
 
 export const DESCRIPTION =
@@ -12,8 +13,8 @@ export const DESCRIPTION =
 const VERSION = readPackageVersion();
 
 export const TOP_HELP = `usage: ado-axi [command] [args] [flags]
-commands[2]:
-  pr, setup
+commands[3]:
+  pr, work-item (alias wi), setup
 context:
   org/project/repo auto-detected from the dev.azure.com git origin; override with
   AZP_REPO=org/project/repo or -R org/project/repo. PAT read from the git credential helper.
@@ -23,10 +24,14 @@ examples:
   ado-axi pr list
   ado-axi pr create --title "Add readiness gate" --auto-complete
   ado-axi pr checks 4242
+  ado-axi wi list --state Active
+  ado-axi wi create --type Task --title "Wire up gate"
   ado-axi setup hooks`;
 
 const COMMAND_HELP: Record<string, string> = {
   pr: PR_HELP,
+  "work-item": WI_HELP,
+  wi: WI_HELP,
   setup: SETUP_HELP,
 };
 
@@ -34,6 +39,8 @@ type CommandFn = (args: string[], ctx?: AdoContext) => Promise<string>;
 
 const COMMANDS: Record<string, CommandFn> = {
   pr: withContext("pr", prCommand),
+  "work-item": withContext("work-item", workItemCommand),
+  wi: withContext("wi", workItemCommand),
   setup: (args) => setupCommand(stripRepoFlag(args).strippedArgs),
 };
 

@@ -39,6 +39,28 @@ The current history is too short to establish a durable local convention. Until 
 
 Pull requests should include the user-facing CLI change, validation commands run, linked issue or context, and sample output when command behavior changes. Never include PATs or credential-helper output in PR text, logs, or fixtures.
 
+## Azure DevOps Domain Notes
+
+These are non-obvious `az` behaviors the wrappers rely on; preserve them when editing.
+
+- **Reviewer-by-email needs an identity fallback.** `az repos pr reviewer add` resolves a
+  reviewer through `vssps.dev.azure.com/.../_apis/Identities`, which a **Code-scoped PAT**
+  cannot reach — it fails with `requires user authentication` (TF400813). `src/identity.ts`
+  recovers the reviewer's GUID from recent PR history (`createdBy`/`reviewers` matched by
+  `displayName`/`uniqueName`/`mailAddress`) and retries with the GUID. Work-item assignment
+  (`--assigned-to`) accepts an email directly and needs no fallback.
+- **`az boards work-item delete` requires `--project`** (unlike most board commands that
+  infer it). `work-item.ts` always passes the resolved project and `--yes`.
+- **`--priority` / `--parent` are not native create/update flags.** Priority is set via
+  `--fields Microsoft.VSTS.Common.Priority=<n>`; parent/relations are a separate
+  `az boards work-item relation add --relation-type <type> --target-id <id>` call.
+- **`work-item list` builds WIQL** from the flag filters and runs `az boards query --wiql`,
+  always scoped to `[System.TeamProject]`. Unassigned is `[System.AssignedTo] = ''`.
+- **Descriptions render to HTML.** `src/markdown.ts` converts plain text / Markdown to the
+  HTML the ADO Description field expects; callers never pass raw HTML.
+- **Not published to npm.** Install from GitHub (`npm install -g github:evangstav/ado-axi`,
+  which runs the `prepare` build) or clone + `npm install && npm run build`.
+
 ## Security & Configuration Tips
 
 The CLI expects Azure DevOps credentials from the git credential helper, with `AZURE_DEVOPS_EXT_PAT` only as a fallback. Do not store tokens in tracked files, shell snippets, examples, or screenshots.

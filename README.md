@@ -27,9 +27,17 @@ tooling built on the AXI conventions (e.g. multi-agent orchestrators) can ship t
 
 ## Install
 
+`ado-axi` is not published to npm. Install it from GitHub, or clone and build:
+
 ```sh
+# straight from GitHub
+npm install -g github:evangstav/ado-axi
+
+# or from a clone
+git clone https://github.com/evangstav/ado-axi.git
+cd ado-axi
 npm install && npm run build
-# optionally: npm link   (exposes `ado-axi` on PATH)
+npm link   # optional: exposes `ado-axi` on PATH
 ```
 
 ## Context resolution
@@ -54,6 +62,20 @@ ado-axi pr create  [-s/--source branch] [-t/--target branch] [--title t]
                    [--description d] [--draft] [--auto-complete] [--squash]
 ado-axi pr complete <id> [--squash | --merge] [--keep-source-branch]
 ado-axi pr checks  <id>
+ado-axi pr reviewer add  <id> --reviewer <email|name|guid> [--required]
+ado-axi pr reviewer list <id>
+
+ado-axi work-item create  --type <Task|Bug|Issue|Epic|…> --title <t> [--description d]
+                          [--assignee who] [--parent id] [--priority n]
+                          [--area a] [--iteration i]
+ado-axi work-item update  <id> [--title t] [--description d] [--assignee who] [--state s]
+                          [--priority n] [--parent id] [--add-relation <type:id>]
+ado-axi work-item show    <id>
+ado-axi work-item delete  <id> [--destroy]
+ado-axi work-item list    [--assignee who] [--state s] [--type t] [--unassigned]
+                          [--query "<raw WIQL>"]
+# `wi` is an alias for `work-item`.
+
 ado-axi setup hooks
 ```
 
@@ -66,10 +88,30 @@ ado-axi setup hooks
 | `pr list` | `az repos pr list` |
 | `pr complete <id>` | `az repos pr update --id <id> --status completed --squash true|false` |
 | `pr checks <id>` | `az repos pr policy list --id <id>` → `passing` / `pending` / `failing` verdict |
+| `pr reviewer add <id>` | `az repos pr reviewer add --id <id> --reviewers <id> [--required true]` |
+| `pr reviewer list <id>` | `az repos pr reviewer list --id <id>` |
+| `work-item create` | `az boards work-item create --type … --title … --project <project>` |
+| `work-item update <id>` | `az boards work-item update --id <id> …` (+ `relation add` for `--parent`/`--add-relation`) |
+| `work-item show <id>` | `az boards work-item show --id <id>` |
+| `work-item delete <id>` | `az boards work-item delete --id <id> --project <project> --yes [--destroy]` |
+| `work-item list` | `az boards query --wiql "<built from flags>" --project <project>` |
 
 `pr checks` summarizes ADO **policy evaluations** (the ADO analogue of GitHub checks) into a
 single verdict plus a per-policy breakdown — what a merge-poll waits on. `--auto-complete`
 on `pr create` sets the PR to complete automatically once all policies pass.
+
+**Reviewer identity resolution.** `pr reviewer add` accepts an email, display name, or GUID.
+The direct value is tried first; if the ADO identity endpoint rejects a Code-scoped PAT
+(`requires user authentication`), the reviewer's GUID is recovered from recent PR history in
+the project (`createdBy`/`reviewers` whose `displayName`/`uniqueName`/`mailAddress` matches)
+and the add is retried — so adding a reviewer by email works even without the Identity scope.
+
+**Work-item descriptions.** `--description` takes plain text or Markdown (headings, lists,
+inline code, bold/italic) and is rendered to the HTML the ADO Description field expects;
+callers never hand-write HTML.
+
+**Work-item list / WIQL.** The `--assignee`/`--state`/`--type`/`--unassigned` flags build a
+project-scoped WIQL query; `--query` is a raw-WIQL escape hatch (still scoped to the project).
 
 ## Examples
 
@@ -88,9 +130,10 @@ ado-axi pr list -R Ipto/IptoAIasset/asset-mgmt-assistant-backend
 
 ## Status
 
-MVP: the `pr` surface (`create`/`show`/`list`/`complete`/`checks`) plus `setup`. Planned:
-`repo`, `pipeline` (`az pipelines`), and `work-item` (`az boards`) commands, and a richer
-TOON projection. Built on `axi-sdk-js`; a candidate for the AXI catalog.
+The `pr` surface (`create`/`show`/`list`/`complete`/`checks`/`reviewer`), the `work-item`
+surface (`create`/`update`/`show`/`delete`/`list`, alias `wi`, over `az boards`), and `setup`.
+Planned: `repo`, `pipeline` (`az pipelines`), and a richer TOON projection. Built on
+`axi-sdk-js`; a candidate for the AXI catalog.
 
 ## License
 
