@@ -2,14 +2,15 @@
 
 ## Project Structure & Module Organization
 
-`ado-axi` is a small TypeScript CLI for Azure DevOps PR workflows.
+`ado-axi` is a small TypeScript CLI for Azure DevOps PR and Boards (work item) workflows.
 
 | Path | Purpose |
 | --- | --- |
 | `bin/ado-axi.ts` | executable entry point used by `npm run dev` |
 | `src/cli.ts` | top-level command routing and help text |
-| `src/commands/` | command implementations such as `pr` and `setup` |
+| `src/commands/` | command implementations such as `pr`, `work-item`, and `setup` |
 | `src/args.ts`, `src/context.ts`, `src/az.ts` | argument parsing, repo/auth context, and `az` integration |
+| `src/identity.ts`, `src/markdown.ts` | reviewer GUID resolution and Markdown→HTML for descriptions |
 | `src/render.ts`, `src/errors.ts` | TOON rendering and structured error handling |
 | `dist/` | generated build output; do not edit by hand |
 
@@ -23,7 +24,7 @@
 | Type-check without emitting files | `npm run typecheck` |
 | Run regression tests | `npm test` |
 
-`npm test` builds first, then runs the Node-based CLI regression suite.
+`npm test` builds first, then runs every `test/*.test.js` file through Node's built-in test runner.
 
 ## Coding Style & Naming Conventions
 

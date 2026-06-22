@@ -58,8 +58,10 @@ function inline(text: string): string {
       if (code) return `<code>${escapeHtml(code[1])}</code>`;
       return escapeHtml(part)
         .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
-        .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1<i>$2</i>")
-        .replace(/(^|[^_])_([^_]+)_(?!_)/g, "$1<i>$2</i>");
+        // Emphasis markers must hug their content (no `* x *`); underscores only
+        // emphasize at word boundaries so `snake_case_name` is left untouched.
+        .replace(/(^|[^*])\*(?!\s)([^*]+?)(?<!\s)\*(?!\*)/g, "$1<i>$2</i>")
+        .replace(/(^|[^_\w])_(?!\s)([^_]+?)(?<!\s)_(?!\w)/g, "$1<i>$2</i>");
     })
     .join("");
 }

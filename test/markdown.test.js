@@ -32,6 +32,14 @@ test("bold and italic markers render", () => {
   assert.equal(renderDescriptionHtml("**b** and *i* and _j_"), "<div><b>b</b> and <i>i</i> and <i>j</i></div>");
 });
 
+test("intra-word underscores do not trigger emphasis", () => {
+  assert.equal(renderDescriptionHtml("use snake_case_name here"), "<div>use snake_case_name here</div>");
+});
+
+test("whitespace-padded asterisks are not treated as emphasis", () => {
+  assert.equal(renderDescriptionHtml("2 * 3 = 6"), "<div>2 * 3 = 6</div>");
+});
+
 test("HTML special characters are escaped", () => {
   assert.equal(renderDescriptionHtml("a & b < c > d"), "<div>a &amp; b &lt; c &gt; d</div>");
 });
