@@ -26,6 +26,12 @@
 
 `npm test` builds first, then runs every `test/*.test.js` file through Node's built-in test runner.
 
+**The compiled `dist/` is committed to the repo.** The git-based global install
+(`npm install -g github:evangstav/ado-axi`) uses it directly — there is no install-time
+build (no `prepare` script), so it can't fail on missing runtime deps. Because of this you
+**must run `npm run build` and commit the refreshed `dist/` whenever you change source**, or
+the published binary will drift from `src/`. `prepack` rebuilds `dist/` when packing/publishing.
+
 ## Coding Style & Naming Conventions
 
 Use TypeScript ES modules targeting Node 20+. Keep `strict` TypeScript clean, prefer small modules with named exports, and keep command-specific logic under `src/commands/`. Use lower-case file names that describe the responsibility, such as `context.ts` or `setup.ts`. Avoid hand-editing generated files in `dist/`.
@@ -59,8 +65,9 @@ These are non-obvious `az` behaviors the wrappers rely on; preserve them when ed
   always scoped to `[System.TeamProject]`. Unassigned is `[System.AssignedTo] = ''`.
 - **Descriptions render to HTML.** `src/markdown.ts` converts plain text / Markdown to the
   HTML the ADO Description field expects; callers never pass raw HTML.
-- **Not published to npm.** Install from GitHub (`npm install -g github:evangstav/ado-axi`,
-  which runs the `prepare` build) or clone + `npm install && npm run build`.
+- **Not published to npm.** Install from GitHub (`npm install -g github:evangstav/ado-axi`),
+  which uses the committed `dist/` with no install-time build, or clone + `npm install &&
+  npm run build`.
 
 ## Security & Configuration Tips
 

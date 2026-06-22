@@ -29,13 +29,20 @@ to ADO repos.
 
 ## Install
 
-`ado-axi` is not published to npm. Install it from GitHub, or clone and build:
+`ado-axi` is not published to npm. Install it straight from GitHub — the compiled
+`dist/` is committed, so the install uses it directly with no build step:
 
 ```sh
 # straight from GitHub
 npm install -g github:evangstav/ado-axi
 
-# or from a clone
+# or pin a branch/tag/commit
+npm install -g 'github:evangstav/ado-axi#main'
+```
+
+To develop locally, clone and build:
+
+```sh
 git clone https://github.com/evangstav/ado-axi.git
 cd ado-axi
 npm install && npm run build
