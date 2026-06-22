@@ -129,12 +129,21 @@ async function updateWi(args: string[], ctx: AdoContext): Promise<string> {
     );
   }
 
+  // Validate relation inputs before any mutating az call so a malformed
+  // --parent/--add-relation can't leave a partial field update behind.
+  if (parent && !/^\d+$/.test(parent)) {
+    throw new AxiError(
+      `--parent must be a numeric work item id (got "${parent}")`,
+      "VALIDATION_ERROR",
+    );
+  }
+  const parsedRelation = relation ? parseRelation(relation) : undefined;
+
   let wi: Record<string, unknown> | undefined;
   if (hasFieldChange) wi = await azJson<Record<string, unknown>>(azArgs, ctx);
   if (parent) await addRelation(id, "parent", parent, ctx);
-  if (relation) {
-    const { type, target } = parseRelation(relation);
-    await addRelation(id, type, target, ctx);
+  if (parsedRelation) {
+    await addRelation(id, parsedRelation.type, parsedRelation.target, ctx);
   }
   // When only relations changed, fetch the item so the summary still reflects it.
   if (!wi) {
