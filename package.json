@@ -25,7 +25,7 @@
     "dev": "tsx bin/ado-axi.ts",
     "prepack": "npm run build",
     "prepare": "npm run build",
-    "test": "npm run build && node test/cli.test.js",
+    "test": "npm run build && node --test test/*.test.js",
     "typecheck": "tsc --noEmit"
   },
   "license": "MIT",

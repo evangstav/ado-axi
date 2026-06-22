@@ -1,5 +1,5 @@
 import { type AdoContext } from "../context.js";
-import { azJson } from "../az.js";
+import { azJson, azExec } from "../az.js";
 import { AxiError } from "../errors.js";
 import { getFlag, hasFlag, getPositional } from "../args.js";
 import { renderOutput, renderData, renderHelp, renderCount } from "../render.js";
@@ -171,7 +171,10 @@ async function deleteWi(args: string[], ctx: AdoContext): Promise<string> {
   ];
   if (destroy) azArgs.push("--destroy");
 
-  await azJson<Record<string, unknown>>(azArgs, ctx);
+  // `az boards work-item delete` does not return clean JSON: `--destroy` prints a
+  // bare "Deleted work item N" line, and soft-delete prepends that line before the
+  // JSON body. The result isn't needed — report deterministically from context.
+  await azExec(azArgs, ctx);
   return renderOutput([
     renderData("deleted", { id, destroyed: destroy }),
     renderHelp(

@@ -26,16 +26,20 @@ export function isIdentityAuthError(err: unknown): boolean {
 }
 
 /**
- * Resolve a person reference (email / display name / GUID) to an identity GUID by
+ * Resolve a person reference (email / display name / GUID) to identity GUIDs by
  * scanning recent pull requests in the project. The Identities REST endpoint often
  * rejects a Code-scoped PAT, but PR history is reachable with the same token and
  * carries the identities we need (`createdBy` plus every entry in `reviewers`).
  * Matching is case-insensitive against displayName, uniqueName, and mailAddress.
+ *
+ * Returns the *distinct* matching GUIDs in first-seen order — usually one (the same
+ * person recurs across PRs with the same id), but more than one means the reference
+ * is ambiguous (e.g. two people share a display name), which the caller surfaces.
  */
 export async function resolveIdentityFromPrHistory(
   value: string,
   ctx: AdoContext,
-): Promise<string | undefined> {
+): Promise<string[]> {
   const prs = await azJson<Record<string, unknown>[]>(
     [
       "repos", "pr", "list",
@@ -46,6 +50,7 @@ export async function resolveIdentityFromPrHistory(
     ctx,
   );
   const needle = value.trim().toLowerCase();
+  const matches = new Set<string>();
 
   for (const pr of prs) {
     const candidates: Record<string, unknown>[] = [];
@@ -60,8 +65,8 @@ export async function resolveIdentityFromPrHistory(
       const names = [c["displayName"], c["uniqueName"], c["mailAddress"]]
         .filter((n): n is string => typeof n === "string")
         .map((n) => n.toLowerCase());
-      if (names.includes(needle)) return id;
+      if (names.includes(needle)) matches.add(id);
     }
   }
-  return undefined;
+  return [...matches];
 }

@@ -287,8 +287,8 @@ async function addReviewer(args: string[], ctx: AdoContext): Promise<string> {
   } catch (err) {
     // A GUID needs no lookup; non-identity errors (bad PR id, etc.) are real.
     if (looksLikeGuid(reviewer) || !isIdentityAuthError(err)) throw err;
-    const guid = await resolveIdentityFromPrHistory(reviewer, ctx);
-    if (!guid) {
+    const guids = await resolveIdentityFromPrHistory(reviewer, ctx);
+    if (guids.length === 0) {
       throw new AxiError(
         `Could not resolve reviewer "${reviewer}" — the identity endpoint is unauthorized and no recent pull request in ${ctx.project} matches by name or email`,
         "VALIDATION_ERROR",
@@ -298,8 +298,18 @@ async function addReviewer(args: string[], ctx: AdoContext): Promise<string> {
         ],
       );
     }
-    resolved = guid;
-    raw = await runAdd(guid);
+    if (guids.length > 1) {
+      throw new AxiError(
+        `Ambiguous reviewer "${reviewer}" — matched ${guids.length} distinct identities in PR history`,
+        "VALIDATION_ERROR",
+        [
+          `Pass the exact GUID: ${guids.join(", ")}`,
+          "Or use the person's unique email instead of a display name",
+        ],
+      );
+    }
+    resolved = guids[0];
+    raw = await runAdd(resolved);
   }
 
   const rows = reviewerRows(raw);
