@@ -32,6 +32,15 @@ test("bold and italic markers render", () => {
   assert.equal(renderDescriptionHtml("**b** and *i* and _j_"), "<div><b>b</b> and <i>i</i> and <i>j</i></div>");
 });
 
+test("intra-word underscores are not italicized", () => {
+  assert.equal(renderDescriptionHtml("call my_var_name here"), "<div>call my_var_name here</div>");
+  assert.equal(renderDescriptionHtml("path/to/file_name.txt"), "<div>path/to/file_name.txt</div>");
+});
+
+test("asterisks with surrounding whitespace are not italicized", () => {
+  assert.equal(renderDescriptionHtml("compute 2 * 3 * 4"), "<div>compute 2 * 3 * 4</div>");
+});
+
 test("HTML special characters are escaped", () => {
   assert.equal(renderDescriptionHtml("a & b < c > d"), "<div>a &amp; b &lt; c &gt; d</div>");
 });
