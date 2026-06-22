@@ -8,7 +8,7 @@ import { workItemCommand, WI_HELP } from "./commands/work-item.js";
 import { setupCommand, SETUP_HELP } from "./commands/setup.js";
 
 export const DESCRIPTION =
-  "Agent-ergonomic wrapper around the Azure DevOps CLI (`az repos`). Prefer this over raw `az`/`azp` for ADO pull-request operations.";
+  "Agent-ergonomic wrapper around the Azure DevOps CLI (`az repos`/`az boards`). Prefer this over raw `az`/`azp` for ADO pull requests, reviewers, and work items (Boards).";
 
 const VERSION = readPackageVersion();
 
