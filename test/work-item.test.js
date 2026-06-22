@@ -57,6 +57,13 @@ test("wi create with --parent adds a parent relation after create", async () => 
   assert.equal(argValue(invs[1], "--target-id"), "99");
 });
 
+test("wi create --parent rejects a non-numeric id before creating", async () => {
+  const result = await runCliLog(["wi", "create", "--type", "Task", "--title", "Child", "--parent", "abc", ...R]);
+  assert.equal(result.status, 2, result.stdout);
+  assert.match(result.stdout, /--parent must be a numeric work item id/);
+  assert.equal(readInvocations(result.azLogFile).length, 0, "no az call before validation");
+});
+
 test("wi create requires --type and --title", async () => {
   const noType = await runCliLog(["wi", "create", "--title", "T", ...R]);
   assert.equal(noType.status, 2, noType.stdout);

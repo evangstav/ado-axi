@@ -88,10 +88,19 @@ async function createWi(args: string[], ctx: AdoContext): Promise<string> {
     azArgs.push("--fields", `Microsoft.VSTS.Common.Priority=${priority}`);
   }
 
+  // Validate --parent before creating so a malformed id can't leave a
+  // created-but-unparented work item behind (mirrors updateWi).
+  const parent = getFlag(args, "--parent");
+  if (parent && !/^\d+$/.test(parent)) {
+    throw new AxiError(
+      `--parent must be a numeric work item id (got "${parent}")`,
+      "VALIDATION_ERROR",
+    );
+  }
+
   const wi = await azJson<Record<string, unknown>>(azArgs, ctx);
   const summary = wiSummary(wi, ctx);
 
-  const parent = getFlag(args, "--parent");
   if (parent) await addRelation(summary.id, "parent", parent, ctx);
 
   return renderOutput([
