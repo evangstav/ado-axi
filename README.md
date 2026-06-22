@@ -1,10 +1,10 @@
 # ado-axi
 
 An [AXI](https://github.com/kunchenguid/axi)-compliant Azure DevOps CLI wrapper — the ADO
-equivalent of [`gh-axi`](https://github.com/kunchenguid/gh-axi). It wraps `az repos` with
-token-efficient [TOON](https://github.com/toon-format/toon) output, contextual next-step
-suggestions, and structured errors, so agents can drive Azure DevOps pull requests the way
-`gh-axi` drives GitHub.
+equivalent of [`gh-axi`](https://github.com/kunchenguid/gh-axi). It wraps `az repos` and
+`az boards` with token-efficient [TOON](https://github.com/toon-format/toon) output, contextual
+next-step suggestions, and structured errors, so agents can drive Azure DevOps pull requests and
+work items the way `gh-axi` drives GitHub.
 
 It also folds in the `azp` shim's auth model: organization, project, and repository are
 auto-detected from the `dev.azure.com` git origin, and the PAT is read from the git
