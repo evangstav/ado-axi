@@ -162,7 +162,13 @@ export async function runCliLog(args, extraEnv = {}) {
 
 /** Split the az log into invocations, each an array of its argv lines. */
 export function readInvocations(path) {
-  return readFileSync(path, "utf8")
+  let text;
+  try {
+    text = readFileSync(path, "utf8");
+  } catch {
+    return []; // az was never invoked, so the log file does not exist
+  }
+  return text
     .split("--INVOCATION--")
     .map((s) => s.trim())
     .filter(Boolean)

@@ -14,16 +14,18 @@ token in argv or env files.
 ## Why
 
 `gh-axi`'s pipeline assumes GitHub + `gh`. Repositories hosted on Azure DevOps have no PRs
-through that path. `ado-axi` provides the same agent-ergonomic surface over `az repos`, so
-tooling built on the AXI conventions (e.g. multi-agent orchestrators) can ship to ADO repos.
+through that path. `ado-axi` provides the same agent-ergonomic surface over `az repos` and
+`az boards`, so tooling built on the AXI conventions (e.g. multi-agent orchestrators) can ship
+to ADO repos.
 
 ## Requirements
 
 - Node 20+
 - [`az` CLI](https://learn.microsoft.com/cli/azure) with the **azure-devops** extension
   (`az extension add --name azure-devops`)
-- A PAT with **Code** and **Pull Request** scopes, stored in the git credential helper for
-  your org URL (`https://dev.azure.com/<org>`). This is the same credential `azp` reads.
+- A PAT with **Code** and **Pull Request** scopes (add **Work Items** for the `work-item`
+  commands), stored in the git credential helper for your org URL
+  (`https://dev.azure.com/<org>`). This is the same credential `azp` reads.
 
 ## Install
 
@@ -121,6 +123,13 @@ ado-axi pr list
 ado-axi pr create --title "Add readiness gate" --auto-complete
 ado-axi pr checks 4242
 ado-axi pr complete 4242 --squash
+ado-axi pr reviewer add 4242 --reviewer dev@org.com --required
+
+# work items (Boards); `wi` is an alias for `work-item`
+ado-axi wi create --type Task --title "Wire up gate" --assignee me@org.com
+ado-axi wi update 1234 --state Active --priority 2
+ado-axi wi list --state Active --type Task
+ado-axi wi list --unassigned
 
 # from anywhere, naming the repo explicitly
 ado-axi -R Ipto/IptoAIasset/asset-mgmt-assistant-backend pr list

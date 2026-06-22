@@ -114,10 +114,20 @@ test("wi update --add-relation parses type:id", async () => {
   assert.equal(argValue(rel, "--target-id"), "888");
 });
 
-test("wi update --add-relation rejects a malformed value", async () => {
-  const result = await runCliLog(["wi", "update", "4321", "--add-relation", "nope", ...R]);
+test("wi update --add-relation rejects a malformed value before mutating", async () => {
+  // Even with a valid field change present, a bad relation must fail fast so no
+  // partial update lands.
+  const result = await runCliLog(["wi", "update", "4321", "--state", "Active", "--add-relation", "nope", ...R]);
   assert.equal(result.status, 2, result.stdout);
   assert.match(result.stdout, /--add-relation must be <type:id>/);
+  assert.equal(readInvocations(result.azLogFile).length, 0, "no az call before validation");
+});
+
+test("wi update --parent rejects a non-numeric id before mutating", async () => {
+  const result = await runCliLog(["wi", "update", "4321", "--state", "Active", "--parent", "abc", ...R]);
+  assert.equal(result.status, 2, result.stdout);
+  assert.match(result.stdout, /--parent must be a numeric work item id/);
+  assert.equal(readInvocations(result.azLogFile).length, 0, "no az call before validation");
 });
 
 test("wi update with field change and a relation runs both", async () => {
