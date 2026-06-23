@@ -79,6 +79,8 @@ ado-axi pr complete <id> [--squash | --merge] [--keep-source-branch]
 ado-axi pr checks  <id>
 ado-axi pr reviewer add  <id> --reviewer <email|name|guid> [--required]
 ado-axi pr reviewer list <id>
+ado-axi pr comment create <id> --message <text>   # aliases: --body, --content
+ado-axi pr comment create <id> --file <path>      # Markdown/plaintext from disk
 
 ado-axi work-item create  --type <Task|Bug|Issue|Epic|…> --title <t> [--description d]
                           [--assignee who] [--parent id] [--priority n]
@@ -105,6 +107,7 @@ ado-axi setup hooks
 | `pr checks <id>` | `az repos pr policy list --id <id>` → `passing` / `pending` / `failing` verdict |
 | `pr reviewer add <id>` | `az repos pr reviewer add --id <id> --reviewers <id> [--required true]` |
 | `pr reviewer list <id>` | `az repos pr reviewer list --id <id>` |
+| `pr comment create <id>` | `az devops invoke --area git --resource pullRequestThreads --route-parameters project=… repositoryId=… pullRequestId=<id> --http-method POST` (REST: `POST …/_apis/git/repositories/{repo}/pullRequests/{id}/threads`) |
 | `work-item create` | `az boards work-item create --type … --title … --project <project>` |
 | `work-item update <id>` | `az boards work-item update --id <id> …` (+ `relation add` for `--parent`/`--add-relation`) |
 | `work-item show <id>` | `az boards work-item show --id <id>` |
@@ -120,6 +123,15 @@ The direct value is tried first; if the ADO identity endpoint rejects a Code-sco
 (`requires user authentication`), the reviewer's GUID is recovered from recent PR history in
 the project (`createdBy`/`reviewers` whose `displayName`/`uniqueName`/`mailAddress` matches)
 and the add is retried — so adding a reviewer by email works even without the Identity scope.
+
+**PR comments.** `pr comment create <id>` posts a top-level review comment to a PR. Provide
+content with exactly one of `--message`/`--body`/`--content` (inline) or `--file <path>` (read
+from disk, newlines preserved — useful for long review write-ups). `az repos pr` has no comment
+command, so this goes through the REST **pull-request threads** resource via `az devops invoke`,
+which keeps PAT/org/project/repo handling identical to every other command. Unlike work-item
+descriptions, PR thread comments render **Markdown**, so the text is sent verbatim (no HTML
+conversion). Scope is intentionally narrow: top-level comments only — no voting, resolving,
+inline file-position comments, or editing.
 
 **Work-item descriptions.** `--description` takes plain text or Markdown (headings, lists,
 inline code, bold/italic) and is rendered to the HTML the ADO Description field expects;
@@ -137,6 +149,8 @@ ado-axi pr create --title "Add readiness gate" --auto-complete
 ado-axi pr checks 4242
 ado-axi pr complete 4242 --squash
 ado-axi pr reviewer add 4242 --reviewer dev@org.com --required
+ado-axi pr comment create 4242 --message "LGTM — one nit on error handling"
+ado-axi pr comment create 4242 --file review.md
 
 # work items (Boards); `wi` is an alias for `work-item`
 ado-axi wi create --type Task --title "Wire up gate" --assignee me@org.com
@@ -152,7 +166,7 @@ ado-axi pr list -R Ipto/IptoAIasset/asset-mgmt-assistant-backend
 
 ## Status
 
-The `pr` surface (`create`/`show`/`list`/`complete`/`checks`/`reviewer`), the `work-item`
+The `pr` surface (`create`/`show`/`list`/`complete`/`checks`/`reviewer`/`comment`), the `work-item`
 surface (`create`/`update`/`show`/`delete`/`list`, alias `wi`, over `az boards`), and `setup`.
 Planned: `repo`, `pipeline` (`az pipelines`), and a richer TOON projection. Built on
 `axi-sdk-js`; a candidate for the AXI catalog.

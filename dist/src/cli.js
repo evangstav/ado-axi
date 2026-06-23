@@ -20,6 +20,7 @@ examples:
   ado-axi pr list
   ado-axi pr create --title "Add readiness gate" --auto-complete
   ado-axi pr checks 4242
+  ado-axi pr comment create 4242 --message "LGTM"
   ado-axi wi list --state Active
   ado-axi wi create --type Task --title "Wire up gate"
   ado-axi setup hooks`;
