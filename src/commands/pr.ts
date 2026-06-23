@@ -1,4 +1,7 @@
 import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { type AdoContext } from "../context.js";
 import { azJson } from "../az.js";
 import { AxiError } from "../errors.js";
@@ -11,8 +14,8 @@ import {
 } from "../identity.js";
 
 export const PR_HELP = `usage: ado-axi pr <subcommand> [flags]
-subcommands[7]:
-  create, show <id>, list, complete <id>, abandon <id>, checks <id>, reviewer
+subcommands[8]:
+  create, show <id>, list, complete <id>, abandon <id>, checks <id>, reviewer, comment
 flags{create}:
   -s/--source <branch> (default: current branch), -t/--target <branch> (default: main),
   --title <t>, --description <d>, --draft, --auto-complete, --squash
@@ -24,13 +27,18 @@ flags{complete}:
 flags{reviewer}:
   reviewer add <id> --reviewer <email|name|guid> [--required]
   reviewer list <id>
+flags{comment}:
+  comment create <id> --message <text>   (aliases: --body, --content)
+  comment create <id> --file <path>      (read Markdown/plaintext from disk)
 examples:
   ado-axi pr create --title "Add readiness gate" --auto-complete
   ado-axi pr show 4242
   ado-axi pr list --status active
   ado-axi pr checks 4242
   ado-axi pr complete 4242 --squash
-  ado-axi pr reviewer add 4242 --reviewer dev@org.com --required`;
+  ado-axi pr reviewer add 4242 --reviewer dev@org.com --required
+  ado-axi pr comment create 4242 --message "LGTM — one nit on error handling"
+  ado-axi pr comment create 4242 --file review.md`;
 
 /** TOON-shaped projection of a PR (a few fields, not the full az blob). */
 function prSummary(
@@ -342,6 +350,149 @@ async function listReviewers(args: string[], ctx: AdoContext): Promise<string> {
   ]);
 }
 
+/**
+ * Top-level PR comment creation.
+ *
+ * `az repos pr` has no `comment` subcommand, so we go through the REST API via
+ * `az devops invoke` — which keeps PAT handling, org/project/repo scoping, and the
+ * `-R` override identical to every other command (the request rides the same `az`
+ * env-var PAT as azp). The endpoint is the pull-request *threads* resource:
+ *   POST {org}/{project}/_apis/git/repositories/{repo}/pullRequests/{id}/threads
+ * A top-level comment is a new thread with no thread context (no inline file
+ * position), holding a single comment.
+ *
+ * IMPORTANT — PR thread comments render **Markdown**, not HTML. This is the opposite
+ * of work-item/PR *descriptions* (see src/markdown.ts), which expect HTML. So we send
+ * the caller's text verbatim and deliberately do NOT run it through
+ * renderDescriptionHtml — HTML tags would show up literally in the comment.
+ */
+async function commentCommand(args: string[], ctx: AdoContext): Promise<string> {
+  const action = args[1];
+  if (action === "create") return createComment(args, ctx);
+  throw new AxiError(
+    `Unknown comment action: ${action ?? "(none)"}`,
+    "VALIDATION_ERROR",
+    ["Available: create"],
+  );
+}
+
+/** Resolve the single content source (`--message`/`--body`/`--content` or `--file`). */
+function resolveCommentContent(args: string[]): string {
+  const inline =
+    getFlag(args, "--message") ??
+    getFlag(args, "--body") ??
+    getFlag(args, "--content");
+  const file = getFlag(args, "--file");
+
+  if (inline !== undefined && file !== undefined) {
+    throw new AxiError(
+      "Pass either --message (--body/--content) or --file, not both",
+      "VALIDATION_ERROR",
+    );
+  }
+  if (inline === undefined && file === undefined) {
+    throw new AxiError(
+      "Comment content is required — pass --message <text> or --file <path>",
+      "VALIDATION_ERROR",
+      [
+        `ado-axi pr comment create <id> --message "Looks good"`,
+        `ado-axi pr comment create <id> --file review.md`,
+      ],
+    );
+  }
+
+  if (file !== undefined) {
+    let content: string;
+    try {
+      // Read raw so newlines are preserved exactly — long review comments depend on it.
+      content = readFileSync(file, "utf-8");
+    } catch {
+      throw new AxiError(
+        `Could not read comment file: ${file}`,
+        "VALIDATION_ERROR",
+      );
+    }
+    if (content.trim().length === 0) {
+      throw new AxiError(`Comment file is empty: ${file}`, "VALIDATION_ERROR");
+    }
+    return content;
+  }
+
+  if (inline!.trim().length === 0) {
+    throw new AxiError("Comment content is empty", "VALIDATION_ERROR");
+  }
+  return inline!;
+}
+
+/**
+ * The REST request body for a top-level comment thread. `commentType: "text"` and a
+ * `parentCommentId` of 0 mark it as a new, non-reply user comment; `status: "active"`
+ * opens a standard discussion thread. Exported indirectly via build* helpers so tests
+ * can assert the exact payload (and that --file content is preserved verbatim).
+ */
+function buildCommentThreadBody(content: string): Record<string, unknown> {
+  return {
+    comments: [{ parentCommentId: 0, content, commentType: "text" }],
+    status: "active",
+  };
+}
+
+/** The `az devops invoke` argv that POSTs a thread to a PR (body lives in `inFile`). */
+function buildCommentInvokeArgs(
+  ctx: AdoContext,
+  prId: number,
+  inFile: string,
+): string[] {
+  return [
+    "devops", "invoke",
+    "--area", "git",
+    "--resource", "pullRequestThreads",
+    "--route-parameters",
+    `project=${ctx.project}`,
+    `repositoryId=${ctx.repo}`,
+    `pullRequestId=${prId}`,
+    "--api-version", "7.1-preview.1",
+    "--http-method", "POST",
+    "--in-file", inFile,
+  ];
+}
+
+async function createComment(args: string[], ctx: AdoContext): Promise<string> {
+  const id = requirePrId(args, 2);
+  const content = resolveCommentContent(args);
+  const body = buildCommentThreadBody(content);
+
+  // az devops invoke reads the request body from a file; write it, invoke, clean up.
+  const dir = mkdtempSync(join(tmpdir(), "ado-axi-comment-"));
+  const inFile = join(dir, "thread.json");
+  let thread: Record<string, unknown>;
+  try {
+    writeFileSync(inFile, JSON.stringify(body), "utf-8");
+    thread = await azJson<Record<string, unknown>>(
+      buildCommentInvokeArgs(ctx, id, inFile),
+      ctx,
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+
+  const comments = Array.isArray(thread["comments"])
+    ? (thread["comments"] as Record<string, unknown>[])
+    : [];
+  const firstComment = comments[0];
+  return renderOutput([
+    renderData("comment", {
+      pr: id,
+      thread: thread["id"],
+      comment: firstComment?.["id"],
+      status: thread["status"] ?? "active",
+      repo: ctx.repo,
+      url: `${ctx.orgUrl}/${encodeURIComponent(ctx.project)}/_git/${encodeURIComponent(ctx.repo)}/pullrequest/${id}`,
+    }),
+    renderHelp([`See it in context: ado-axi pr show ${id}`]),
+  ]);
+}
+
 /** Project the az reviewer blob(s) into a TOON table. */
 function reviewerRows(raw: unknown): Record<string, unknown>[] {
   const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
@@ -410,9 +561,11 @@ export async function prCommand(
       return checksPr(args, ctx);
     case "reviewer":
       return reviewerCommand(args, ctx);
+    case "comment":
+      return commentCommand(args, ctx);
     default:
       throw new AxiError(`Unknown subcommand: ${sub}`, "VALIDATION_ERROR", [
-        "Available: create, show, list, complete, abandon, checks, reviewer",
+        "Available: create, show, list, complete, abandon, checks, reviewer, comment",
       ]);
   }
 }

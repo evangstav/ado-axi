@@ -65,6 +65,14 @@ These are non-obvious `az` behaviors the wrappers rely on; preserve them when ed
   always scoped to `[System.TeamProject]`. Unassigned is `[System.AssignedTo] = ''`.
 - **Descriptions render to HTML.** `src/markdown.ts` converts plain text / Markdown to the
   HTML the ADO Description field expects; callers never pass raw HTML.
+- **PR comments are Markdown and go through REST, not `az repos pr`.** `az repos pr` has no
+  `comment` subcommand, so `pr comment create` posts to the pull-request *threads* resource via
+  `az devops invoke --area git --resource pullRequestThreads --route-parameters
+  project=… repositoryId=… pullRequestId=<id> --http-method POST` (body in a temp `--in-file`).
+  Crucially, PR thread comments render **Markdown** (the opposite of work-item/PR descriptions),
+  so the content is sent **verbatim** — do NOT run it through `renderDescriptionHtml`, or tags
+  show up literally. `--file` is read raw to preserve newlines. Scope is deliberately narrow:
+  top-level comments only (no voting/resolving/inline-position/editing).
 - **Not published to npm.** Install from GitHub (`npm install -g github:evangstav/ado-axi`),
   which uses the committed `dist/` with no install-time build, or clone + `npm install &&
   npm run build`.

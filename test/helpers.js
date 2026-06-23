@@ -129,6 +129,15 @@ case "$*" in
     else
       printf '[{"id":"11111111-1111-1111-1111-111111111111","displayName":"Dev One","uniqueName":"dev@org.com","isRequired":true,"vote":0}]\\n'
     fi ;;
+  *"devops invoke"*)
+    # Capture the --in-file request body (deleted by the CLI after the call) so tests
+    # can assert the exact REST payload and that --file content is preserved.
+    prev=""
+    for a in "$@"; do
+      [ "$prev" = "--in-file" ] && cp "$a" "$ADO_AXI_AZ_LOG_FILE.body"
+      prev="$a"
+    done
+    printf '{"id":900,"status":"active","comments":[{"id":1,"commentType":"text"}]}\\n' ;;
   *"repos pr reviewer list"*) printf '[{"id":"22222222-2222-2222-2222-222222222222","displayName":"Dev Two","uniqueName":"dev2@org.com","isRequired":false,"vote":10}]\\n' ;;
   *"repos pr reviewer remove"*) printf '[]\\n' ;;
   *"repos pr list"*)
@@ -173,6 +182,11 @@ export function readInvocations(path) {
     .map((s) => s.trim())
     .filter(Boolean)
     .map((s) => s.split("\n"));
+}
+
+/** Read the captured `az devops invoke --in-file` request body (parsed JSON). */
+export function readRequestBody(logPath) {
+  return JSON.parse(readFileSync(`${logPath}.body`, "utf8"));
 }
 
 /** Value following `flag` within a single invocation's argv. */
