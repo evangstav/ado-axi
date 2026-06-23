@@ -73,6 +73,10 @@ These are non-obvious `az` behaviors the wrappers rely on; preserve them when ed
   so the content is sent **verbatim** — do NOT run it through `renderDescriptionHtml`, or tags
   show up literally. `--file` is read raw to preserve newlines. Scope is deliberately narrow:
   top-level comments only (no voting/resolving/inline-position/editing).
+  **`--api-version` must be numeric (`7.1`), not a REST preview label (`7.1-preview.1`).** The
+  Azure CLI parses `--api-version` as a *float* for version negotiation, so a preview label makes
+  `az devops invoke` fail before any network call with
+  `could not convert string to float: '7.1.1'`. pullRequestThreads create is GA at 7.1.
 - **Not published to npm.** Install from GitHub (`npm install -g github:evangstav/ado-axi`),
   which uses the committed `dist/` with no install-time build, or clone + `npm install &&
   npm run build`.

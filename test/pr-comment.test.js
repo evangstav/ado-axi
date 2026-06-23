@@ -46,6 +46,18 @@ test("comment create posts a thread via az devops invoke with --message", async 
     pullRequestId: "4242",
   });
 
+  // --api-version must be a numeric value Azure CLI can parse as a float for version
+  // negotiation. A REST preview label like "7.1-preview.1" makes `az devops invoke` fail
+  // with "could not convert string to float: '7.1.1'" before any network call, so guard it.
+  const apiVersion = argValue(inv, "--api-version");
+  assert.ok(apiVersion !== undefined, "--api-version must be passed");
+  assert.match(
+    apiVersion,
+    /^\d+(\.\d+)?$/,
+    `--api-version must be numeric (float-parseable), got "${apiVersion}"`,
+  );
+  assert.equal(apiVersion, "7.1");
+
   // Request body: a single Markdown text comment in a new active thread.
   const body = readRequestBody(result.azLogFile);
   assert.equal(body.status, "active");
