@@ -451,7 +451,11 @@ function buildCommentInvokeArgs(
     `project=${ctx.project}`,
     `repositoryId=${ctx.repo}`,
     `pullRequestId=${prId}`,
-    "--api-version", "7.1-preview.1",
+    // Azure CLI parses --api-version as a float for version negotiation, so it must be
+    // numeric (`7.1`), NOT a REST preview label (`7.1-preview.1`). A preview label makes
+    // `az devops invoke` fail before any network call with
+    // "could not convert string to float: '7.1.1'". pullRequestThreads create is GA at 7.1.
+    "--api-version", "7.1",
     "--http-method", "POST",
     "--in-file", inFile,
   ];
