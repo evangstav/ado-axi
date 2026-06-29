@@ -34,8 +34,18 @@ if [ "$ADO_AXI_FAKE_AZ_FAIL" = "1" ]; then
 fi
 printf '%s\\n' "$@" > "$ADO_AXI_AZ_ARGS_FILE"
 case "$*" in
-  *"repos pr list"*) printf '[]\\n' ;;
-  *) printf '{"pullRequestId":123,"title":"Demo","status":"active","sourceRefName":"refs/heads/feature/demo","targetRefName":"refs/heads/main"}\\n' ;;
+  *"repos pr list"*)
+    if [ "$ADO_AXI_PR_NO_CREATED_BY" = "1" ]; then
+      printf '[{"pullRequestId":123,"title":"Demo","status":"active","sourceRefName":"refs/heads/feature/demo","targetRefName":"refs/heads/main"}]\\n'
+    else
+      printf '[{"pullRequestId":123,"title":"Demo","status":"active","sourceRefName":"refs/heads/feature/demo","targetRefName":"refs/heads/main","createdBy":{"id":"11111111-1111-1111-1111-111111111111","displayName":"Dev One","uniqueName":"dev@org.com"}}]\\n'
+    fi ;;
+  *)
+    if [ "$ADO_AXI_PR_NO_CREATED_BY" = "1" ]; then
+      printf '{"pullRequestId":123,"title":"Demo","status":"active","sourceRefName":"refs/heads/feature/demo","targetRefName":"refs/heads/main"}\\n'
+    else
+      printf '{"pullRequestId":123,"title":"Demo","status":"active","sourceRefName":"refs/heads/feature/demo","targetRefName":"refs/heads/main","createdBy":{"id":"11111111-1111-1111-1111-111111111111","displayName":"Dev One","uniqueName":"dev@org.com"}}\\n'
+    fi ;;
 esac
 `,
     { mode: 0o755 },
