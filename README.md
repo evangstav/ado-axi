@@ -118,6 +118,10 @@ ado-axi setup hooks
 single verdict plus a per-policy breakdown — what a merge-poll waits on. `--auto-complete`
 on `pr create` sets the PR to complete automatically once all policies pass.
 
+`pr list` and `pr show` include the PR creator as `author` (display name) and
+`author_unique` (ADO `uniqueName`, usually the email/UPN). If ADO omits the identity, the
+fields are left empty rather than failing the command.
+
 **Reviewer identity resolution.** `pr reviewer add` accepts an email, display name, or GUID.
 The direct value is tried first; if the ADO identity endpoint rejects a Code-scoped PAT
 (`requires user authentication`), the reviewer's GUID is recovered from recent PR history in

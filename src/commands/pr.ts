@@ -46,6 +46,7 @@ function prSummary(
   ctx: AdoContext,
 ): Record<string, unknown> {
   const repo = pr["repository"] as Record<string, unknown> | undefined;
+  const author = prAuthor(pr["createdBy"]);
   return {
     id: pr["pullRequestId"],
     title: pr["title"],
@@ -53,9 +54,32 @@ function prSummary(
     source: stripRef(pr["sourceRefName"]),
     target: stripRef(pr["targetRefName"]),
     isDraft: pr["isDraft"] ?? false,
+    author: author.name,
+    author_unique: author.unique,
     repo: repo?.["name"] ?? ctx.repo,
     url: webUrl(pr, ctx),
   };
+}
+
+function prAuthor(createdBy: unknown): { name: string; unique: string } {
+  const identity =
+    createdBy && typeof createdBy === "object"
+      ? (createdBy as Record<string, unknown>)
+      : undefined;
+  const displayName = identityString(identity, "displayName");
+  const uniqueName = identityString(identity, "uniqueName");
+  return {
+    name: displayName || uniqueName,
+    unique: uniqueName,
+  };
+}
+
+function identityString(
+  identity: Record<string, unknown> | undefined,
+  key: string,
+): string {
+  const value = identity?.[key];
+  return typeof value === "string" ? value : "";
 }
 
 function stripRef(ref: unknown): string | undefined {

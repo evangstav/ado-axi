@@ -36,6 +36,7 @@ examples:
 /** TOON-shaped projection of a PR (a few fields, not the full az blob). */
 function prSummary(pr, ctx) {
     const repo = pr["repository"];
+    const author = prAuthor(pr["createdBy"]);
     return {
         id: pr["pullRequestId"],
         title: pr["title"],
@@ -43,9 +44,26 @@ function prSummary(pr, ctx) {
         source: stripRef(pr["sourceRefName"]),
         target: stripRef(pr["targetRefName"]),
         isDraft: pr["isDraft"] ?? false,
+        author: author.name,
+        author_unique: author.unique,
         repo: repo?.["name"] ?? ctx.repo,
         url: webUrl(pr, ctx),
     };
+}
+function prAuthor(createdBy) {
+    const identity = createdBy && typeof createdBy === "object"
+        ? createdBy
+        : undefined;
+    const displayName = identityString(identity, "displayName");
+    const uniqueName = identityString(identity, "uniqueName");
+    return {
+        name: displayName || uniqueName,
+        unique: uniqueName,
+    };
+}
+function identityString(identity, key) {
+    const value = identity?.[key];
+    return typeof value === "string" ? value : "";
 }
 function stripRef(ref) {
     return typeof ref === "string" ? ref.replace(/^refs\/heads\//, "") : undefined;
