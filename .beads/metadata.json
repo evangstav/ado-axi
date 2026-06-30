@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "adoaxi",
+  "project_id": "038b0d1e-33a5-44dd-9044-e01b4ca2b237"
+}
